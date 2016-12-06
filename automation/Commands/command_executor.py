@@ -58,3 +58,6 @@ def execute_command(command, webdriver, proxy_queue, browser_settings, browser_p
                     "manager_params": manager_params,
                     "extension_socket": extension_socket}
         command[1](*command[2], **arg_dict)
+
+    if command[0] == 'DETECT_COOKIE_BANNER':
+        browser_commands.detect_cookie_banner(command[1], webdriver)

@@ -233,3 +233,13 @@ def save_screenshot(screenshot_name, webdriver, browser_params, manager_params):
 def dump_page_source(dump_name, webdriver, browser_params, manager_params):
     with open(os.path.join(manager_params['source_dump_path'], dump_name + '.html'), 'wb') as f:
         f.write(webdriver.page_source.encode('utf8') + '\n')
+
+def detect_cookie_banner(url, webdriver):
+
+    # TODO: Test site-specific rules.
+
+    # TODO: Test if general rule applies to site.
+
+    contents = webdriver.find_elements_by_css_selector('#privacypolicy')
+    for c in contents:
+        print c.text
