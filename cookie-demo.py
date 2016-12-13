@@ -1,5 +1,58 @@
 from automation import TaskManager, CommandSequence
 
+class Selectors(dict):
+    def __init__(self,*arg,**kw):
+        super(Selectors, self).__init__(*arg, **kw)
+
+    def __repr__(self):
+        return "selectors"
+
+    def __call__(self):
+        pass
+
+
+def parse_cookie_selectors(file_name):
+    """Parse the cookie selectors and return them in data structure.
+
+    The data structure maps FQDNs to a list of CSS selectors.  The empty string
+    "" maps to a list of general CSS selectors that apply to many sites.
+    """
+
+    unknown = 0
+
+    # Maps a domain to a list of selectors.
+    filterlist = Selectors()
+
+    lines = []
+    with open(file_name) as fd:
+        for line in fd:
+            line = line.strip()
+
+            # AdBlock's filter rules are complex, but we only care about a
+            # subset: element hiding rules.  These rules are denoted by the
+            # symbol "##".
+            if "##" not in line:
+                unknown += 1
+                continue
+            domains, selectors = line.split("##")
+
+            # Commas denote a list of domains and selectors.
+            domains = [s.strip() for s in domains.split(",")]
+            selectors = [s.strip() for s in selectors.split(",")]
+
+            for domain in domains:
+                for selector in selectors:
+                    s = filterlist.get(domain, [])
+                    filterlist[domain] = s + [selector]
+
+    if unknown > 0:
+        print "%d element weren't element hiding rules" % unknown
+
+    return filterlist
+
+file_name = "automation/Commands/cookie-selectors.dat"
+selectors = parse_cookie_selectors(file_name)
+
 # The list of sites that we wish to crawl
 NUM_BROWSERS = 1
 sites = ['http://www.derstandard.at']
@@ -27,7 +80,7 @@ for site in sites:
     # Start by visiting the page
     command_sequence.get(sleep=0, timeout=60)
 
-    command_sequence.detect_cookie_banner()
+    command_sequence.detect_cookie_banner(selectors, timeout=60)
 
     manager.execute_command_sequence(command_sequence, index='**') # ** = synchronized browsers
 

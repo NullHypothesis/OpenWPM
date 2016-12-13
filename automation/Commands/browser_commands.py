@@ -3,10 +3,12 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import MoveTargetOutOfBoundsException
 from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import InvalidSelectorException
 from selenium.webdriver.common.action_chains import ActionChains
 import os
 import random
 import time
+import urlparse
 
 from ..SocketInterface import clientsocket
 from ..MPLogger import loggingclient
@@ -234,12 +236,39 @@ def dump_page_source(dump_name, webdriver, browser_params, manager_params):
     with open(os.path.join(manager_params['source_dump_path'], dump_name + '.html'), 'wb') as f:
         f.write(webdriver.page_source.encode('utf8') + '\n')
 
-def detect_cookie_banner(url, webdriver):
+def detect_cookie_banner(selectors, webdriver):
+    """Detect if the given site contains a cookie banner.
 
-    # TODO: Test site-specific rules.
+    We detect if there is a cookie banner by checking if any CSS element within
+    a large set of CSS selectors is present on the site.  We got all these
+    selectors from the Firefox add-on "I don't care about cookies" that
+    crowd-sourced the selectors.  We have general as well as site-specific CSS
+    selectors.  If we find a cookie banner, we log what we can.
+    """
 
-    # TODO: Test if general rule applies to site.
+    # Extract FQDN from URL.
+    components = urlparse.urlparse(webdriver.current_url)
+    domain = components.netloc
+    print "FQDN is %s" % domain
 
-    contents = webdriver.find_elements_by_css_selector('#privacypolicy')
-    for c in contents:
-        print c.text
+    # First, use a domain-specific CSS selector if there is one, and a general
+    # CSS selector otherwise.
+    css_list = selectors.get(domain, None)
+    if css_list is None:
+        print "No domain-specific CSS selector for %s" % domain
+        css_list = selectors.get("", [])
+    print "Looking for %d CSS selectors." % len(css_list)
+
+    for css in css_list:
+        try:
+            elements = webdriver.find_elements_by_css_selector(css)
+        except InvalidSelectorException as err:
+            print "Invalid CSS selector: %s" % err
+
+        if len(elements):
+            for element in elements:
+                print "Cookie banner is \"%s\"" % element.text
+                print element.size
+                print dir(element)
+                #element.screenshot("whoops")
+            break

@@ -115,11 +115,11 @@ class CommandSequence:
         command = ('RUN_CUSTOM_FUNCTION', function_handle, func_args)
         self.commands_with_timeout.append((command, timeout))
 
-    def detect_cookie_banner(self, timeout=30):
+    def detect_cookie_banner(self, selectors, timeout=30):
         """Detect if the site has a cookie banner on its front page."""
         self.total_timeout += timeout
         if not self.contains_get_or_browse:
             raise CommandExecutionError("No get or browse request preceding "
                                         "the detect cookie banner command", self)
-        command = ('DETECT_COOKIE_BANNER', self.url,)
+        command = ('DETECT_COOKIE_BANNER', selectors,)
         self.commands_with_timeout.append((command, timeout))
