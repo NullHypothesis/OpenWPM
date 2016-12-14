@@ -5,6 +5,7 @@ const data              = require("sdk/self").data;
 var loggingDB           = require("./lib/loggingdb.js");
 var pageManager         = require("./lib/page-manager.js");
 var cookieInstrument    = require("./lib/cookie-instrument.js");
+var bannerInstrument    = require("./lib/cookie-banner-instrument.js");
 var jsInstrument        = require("./lib/javascript-instrument.js");
 var cpInstrument        = require("./lib/content-policy-instrument.js");
 var httpInstrument      = require("./lib/http-instrument.js");
@@ -24,6 +25,7 @@ exports.main = function(options, callbacks) {
       leveldb_address:null,
       disable_webdriver_self_id:true,
       cookie_instrument:true,
+      cookie_banner_instrument:true,
       js_instrument:true,
       cp_instrument:true,
       http_instrument:true,
@@ -48,6 +50,10 @@ exports.main = function(options, callbacks) {
   if (config['cookie_instrument']) {
     console.log("Cookie instrumentation enabled");
     cookieInstrument.run(config['crawl_id']);
+  }
+  if (config['cookie_banner_instrument']) {
+    console.log("Cookie banner instrumentation enabled");
+    bannerInstrument.run(config['crawl_id']);
   }
   if (config['js_instrument']) {
     console.log("Javascript instrumentation enabled");

@@ -9,6 +9,7 @@ import os
 import random
 import time
 import urlparse
+import collections
 
 from ..SocketInterface import clientsocket
 from ..MPLogger import loggingclient
@@ -236,7 +237,7 @@ def dump_page_source(dump_name, webdriver, browser_params, manager_params):
     with open(os.path.join(manager_params['source_dump_path'], dump_name + '.html'), 'wb') as f:
         f.write(webdriver.page_source.encode('utf8') + '\n')
 
-def detect_cookie_banner(selectors, webdriver):
+def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager_params):
     """Detect if the given site contains a cookie banner.
 
     We detect if there is a cookie banner by checking if any CSS element within
@@ -246,29 +247,57 @@ def detect_cookie_banner(selectors, webdriver):
     selectors.  If we find a cookie banner, we log what we can.
     """
 
+    Banner = collections.namedtuple("Banner", ["text", "width", "height", "x_pos", "y_pos"])
+    banners = []
+
+    # Connect to logger.
+    logger = loggingclient(*manager_params['logger_address'])
+
     # Extract FQDN from URL.
     components = urlparse.urlparse(webdriver.current_url)
     domain = components.netloc
-    print "FQDN is %s" % domain
 
     # First, use a domain-specific CSS selector if there is one, and a general
     # CSS selector otherwise.
     css_list = selectors.get(domain, None)
     if css_list is None:
-        print "No domain-specific CSS selector for %s" % domain
         css_list = selectors.get("", [])
-    print "Looking for %d CSS selectors." % len(css_list)
 
     for css in css_list:
         try:
             elements = webdriver.find_elements_by_css_selector(css)
         except InvalidSelectorException as err:
-            print "Invalid CSS selector: %s" % err
+            logger.info("Invalid CSS selector: %s" % err)
+        except Exception as err:
+            logger.warning("Unknown exception happened: %s" % err)
 
         if len(elements):
             for element in elements:
-                print "Cookie banner is \"%s\"" % element.text
-                print element.size
-                print dir(element)
-                #element.screenshot("whoops")
+                banners.append(Banner(element.text,
+                                      element.size["width"],
+                                      element.size["height"],
+                                      element.location["x"],
+                                      element.location["y"]))
+            # Stop after we found the first banner.
             break
+
+    # Create pseudo banner if we couldn't find any.
+    if len(banners) == 0:
+        banners.append(Banner("n/a", 0, 0, 0, 0))
+
+    # Write result to database.
+    sock = clientsocket()
+    sock.connect(*manager_params['aggregator_address'])
+    for banner in banners:
+        query = ("INSERT INTO cookie_banners "
+                "(crawl_id, visit_id, url, banner_text, banner_width, "
+                "banner_height, banner_x_pos, banner_y_pos) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (browser_params["crawl_id"],
+                visit_id,
+                webdriver.current_url,
+                banner.text,
+                banner.width, banner.height,
+                banner.x_pos, banner.y_pos))
+        sock.send(query)
+    sock.close()

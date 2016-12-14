@@ -2,6 +2,7 @@
     "extension_enabled": true,
     "disable_webdriver_self_id": true,
     "cookie_instrument": false,
+    "cookie_banner_instrument": true,
     "js_instrument": false,
     "cp_instrument": false,
     "http_instrument": false,
