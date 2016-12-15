@@ -250,6 +250,7 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
 
     Banner = collections.namedtuple("Banner", ["text", "html", "width", "height", "x_pos", "y_pos"])
     banners = []
+    st = time.time()
 
     # Connect to logger.
     logger = loggingclient(*manager_params['logger_address'])
@@ -275,10 +276,10 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
 
     for css in css_list:
         if css[0] in ('.', '#'):
-            s = css[1:css.find(':')]
+            s = css[1:css.find(':')] if ':' in css else css[1:]
             if s not in ids and s not in classes:
-                # skip find_elements for simple selectors we know are not there
-                continue  
+                # Skip find_elements for simple selectors we know are not there. 
+                continue  # comment for debug
         try:
             elements = webdriver.find_elements_by_css_selector(css)
         except InvalidSelectorException as err:
@@ -296,6 +297,8 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
                                       element.location["y"]))
             # FIXME: We stop after finding first banner. Perhaps we want all?
             break
+
+    #print "DBG cookie_banner: searched %d selectors in %.1fs, matched %s" % (len(css_list), time.time()-st, css if banners else "NONE")
 
     # Create pseudo banner if we couldn't find any.
     if not banners:
