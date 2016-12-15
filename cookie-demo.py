@@ -1,15 +1,5 @@
 from automation import TaskManager, CommandSequence
 
-class Selectors(dict):
-    def __init__(self,*arg,**kw):
-        super(Selectors, self).__init__(*arg, **kw)
-
-    def __repr__(self):
-        return "selectors"
-
-    def __call__(self):
-        pass
-
 
 def parse_cookie_selectors(file_name):
     """Parse the cookie selectors and return them in data structure.
@@ -21,7 +11,7 @@ def parse_cookie_selectors(file_name):
     unknown = 0
 
     # Maps a domain to a list of selectors.
-    filterlist = Selectors()
+    filterlist = dict()
 
     lines = []
     with open(file_name) as fd:
