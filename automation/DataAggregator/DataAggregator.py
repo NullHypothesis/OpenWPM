@@ -80,7 +80,9 @@ def process_query(query, curr, logger):
     for i in range(len(args)):
         if type(args[i]) == str:
             args[i] = unicode(args[i], errors='ignore')
-        else:
+        elif type(args[i]) == dict:
+            args[i] = "dict(%d items)" % len(args[i])
+        elif callable(args[i]):
             args[i] = str(args[i])
     try:
         if len(args) == 0:

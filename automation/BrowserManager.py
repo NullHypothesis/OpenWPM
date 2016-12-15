@@ -286,7 +286,8 @@ def BrowserManager(command_queue, status_queue, browser_params, manager_params, 
 
             # reads in the command tuple of form (command, arg0, arg1, arg2, ..., argN) where N is variable
             command = command_queue.get()
-            logger.info("BROWSER %i: EXECUTING COMMAND: %s" % (browser_params['crawl_id'], str(command)))
+            s_args = str(command[1:]) if type(command[1]) is not dict else "({%s items}, %s)" % (len(command[1]), str(command[2:])[1:-1])
+            logger.info("BROWSER %i: EXECUTING COMMAND: %s %s" % (browser_params['crawl_id'], str(command[0]), s_args))
             # attempts to perform an action and return an OK signal
             # if command fails for whatever reason, tell the TaskMaster to kill and restart its worker processes
             command_executor.execute_command(command,
