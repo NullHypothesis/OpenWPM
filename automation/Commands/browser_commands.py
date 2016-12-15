@@ -248,7 +248,7 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
     selectors.  If we find a cookie banner, we log what we can.
     """
 
-    Banner = collections.namedtuple("Banner", ["text", "html", "width", "height", "x_pos", "y_pos"])
+    Banner = collections.namedtuple("Banner", ["selector", "text", "html", "width", "height", "x_pos", "y_pos", "more"])
     banners = []
     st = time.time()
 
@@ -257,11 +257,11 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
 
     # Extract FQDN from URL.
     components = urlparse.urlparse(webdriver.current_url)
-    domain = components.netloc
+    domain = components.netloc.replace('www.', '')  # FIXME: more robust method to match subdomains
 
     # Combine domain-specific CSS selectors (if there is one) with the general selectors
     assert type(selectors) is dict
-    css_list = selectors.get(domain, [])
+    css_list = selectors.get(domain, [])  
     css_list += selectors.get("", [])  
 
     # To optimize selector search, create sets of CSS ids and classes on the page
@@ -283,42 +283,44 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
         try:
             elements = webdriver.find_elements_by_css_selector(css)
         except InvalidSelectorException as err:
-            logger.info("detect_cookie_banner: Invalid CSS selector: %s" % err)
+            logger.warning("Invalid CSS selector: %s" % err)
         except Exception as err:
-            logger.warning("detect_cookie_banner: Unknown exception happened: %s" % err)
+            logger.warning("Unknown exception happened: %s" % err)
 
-        if elements:  
-            for element in elements:
-                banners.append(Banner(element.text,
-                                      element.get_attribute('innerHTML'),
-                                      element.size["width"],
-                                      element.size["height"],
-                                      element.location["x"],
-                                      element.location["y"]))
-            # FIXME: We stop after finding first banner. Perhaps we want all?
-            break
+        if elements:
+            element = elements[0]  # we only save first matched element, but tag if more where matched
+            banners.append(Banner(css,
+                                  element.text,
+                                  element.get_attribute('innerHTML'),
+                                  element.size["width"],
+                                  element.size["height"],
+                                  element.location["x"],
+                                  element.location["y"],
+                                  len(elements) > 1))  
 
-    #print "DBG cookie_banner: searched %d selectors in %.1fs, matched %s" % (len(css_list), time.time()-st, css if banners else "NONE")
+    logger.info("COOKIE BANNER SEARCH %s: matched %d, from %d selectors, in %.1fs" % (domain, len(banners), len(css_list), time.time()-st))
 
-    # Create pseudo banner if we couldn't find any.
+    # Create an empty banner if we couldn't find any.
     if not banners:
-        banners.append(Banner(None, None, None, None, None, None))
+        banners.append(Banner(None, None, None, None, None, None, None, None))
 
     # Write result to database.
     sock = clientsocket()
     sock.connect(*manager_params['aggregator_address'])
     for banner in banners:
         query = ("INSERT INTO cookie_banners "
-                "(crawl_id, visit_id, url, html, banner_text, banner_width, "
-                "banner_height, banner_x_pos, banner_y_pos) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
+                "(crawl_id, visit_id, url, matched_selector, html, banner_text, banner_width, "
+                "banner_height, banner_x_pos, banner_y_pos, more_elements) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (browser_params["crawl_id"],
                 visit_id,
                 webdriver.current_url,
+                banner.selector,
                 banner.html,
                 banner.text,
                 banner.width, banner.height,
-                banner.x_pos, banner.y_pos))
+                banner.x_pos, banner.y_pos,
+                banner.more))
         sock.send(query)
     sock.close()
 

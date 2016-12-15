@@ -123,10 +123,12 @@ CREATE TABLE IF NOT EXISTS cookie_banners(
     crawl_id INTEGER,
     visit_id INTEGER,
     url TEXT NOT NULL,
+    matched_selector TEXT,
     html TEXT,
     banner_text TEXT,
     banner_width INTEGER,
     banner_height INTEGER,
     banner_x_pos INTEGER,
-    banner_y_pos INTEGER
+    banner_y_pos INTEGER,
+    more_elements INTEGER
 );

@@ -1,12 +1,11 @@
 from automation import TaskManager, CommandSequence
 
 
-def parse_cookiewall_selectors(file_name):
+def parse_cookie_selectors(file_name):
     """Parse the cookie selectors and return them in data structure.
 
     The data structure maps FQDNs to a list of CSS selectors.  The empty string
-    "" maps to a list of general CSS selectors that apply to many sites.
-    """
+    "" maps to a list of general CSS selectors that apply to many sites."""
 
     # Maps a domain to a list of selectors.
     filterlist = dict()
@@ -36,20 +35,20 @@ def parse_cookiewall_selectors(file_name):
 
     return filterlist
 
-COOKIEWALL_DAT = "./cookie-selectors.dat"
-selectors = parse_cookiewall_selectors(COOKIEWALL_DAT)
+COOKIESELECTOR_DAT = "./cookie-selectors.dat"
+selectors = parse_cookie_selectors(COOKIESELECTOR_DAT)
 
 # The list of sites that we wish to crawl
 NUM_BROWSERS = 1
-sites = ['http://www.derstandard.at', 'http://tudelft.nl', 'http://ad.nl', 'http://google.nl', 'http://google.com']
+sites = ['http://derstandard.at', 'http://tudelft.nl', 'http://ad.nl', 'http://google.nl', 'http://google.com']  
 
 # Loads the manager preference and 3 copies of the default browser dictionaries
 manager_params, browser_params = TaskManager.load_default_params(NUM_BROWSERS)
 
-# Update browser configuration (use this for per-browser settings)
+# Update browser configuration 
 for i in xrange(NUM_BROWSERS):
-    browser_params[i]['disable_flash'] = False #Enable flash for all three browsers
-browser_params[0]['headless'] = True #Launch only browser 0 headless
+    browser_params[i]['disable_flash'] = True 
+    browser_params[i]['headless'] = True 
 
 # Update TaskManager configuration (use this for crawl-wide settings)
 manager_params['data_directory'] = '~/Desktop/'
@@ -59,16 +58,12 @@ manager_params['log_directory'] = '~/Desktop/'
 # Commands time out by default after 60 seconds
 manager = TaskManager.TaskManager(manager_params, browser_params)
 
-# Visits the sites with all browsers simultaneously
 for site in sites:
     command_sequence = CommandSequence.CommandSequence(site, reset=True)
+    command_sequence.get(sleep=0, timeout=60)  # Start by visiting the page
+    command_sequence.detect_cookie_banner(selectors, timeout=60)  # Detect cookie banners
+    manager.execute_command_sequence(command_sequence)
 
-    # Start by visiting the page
-    command_sequence.get(sleep=0, timeout=60)
-
-    command_sequence.detect_cookie_banner(selectors, timeout=60)
-
-    manager.execute_command_sequence(command_sequence)  
 
 # Shuts down the browsers and waits for the data to finish logging
 manager.close()
