@@ -250,7 +250,6 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
 
     Banner = collections.namedtuple("Banner", ["selector", "text", "html", "width", "height", "x_pos", "y_pos", "more"])
     banners = []
-    st = time.time()
 
     # Connect to logger.
     logger = loggingclient(*manager_params['logger_address'])
@@ -261,8 +260,8 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
 
     # Combine domain-specific CSS selectors (if there is one) with the general selectors
     assert type(selectors) is dict
-    css_list = selectors.get(domain, [])  
-    css_list += selectors.get("", [])  
+    css_list1 = selectors.get(domain, [])  
+    css_list2 = selectors.get("", [])  
 
     # To optimize selector search, create sets of CSS ids and classes on the page
     tree = etree.fromstring(webdriver.page_source, etree.HTMLParser())
@@ -274,7 +273,7 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
             for c in elem.attrib['class'].split(' '):
               classes.add(c)
 
-    for css in css_list:
+    for css in css_list1 + css_list2:
         if css[0] in ('.', '#'):
             s = css[1:css.find(':')] if ':' in css else css[1:]
             if s not in ids and s not in classes:
@@ -298,7 +297,7 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
                                   element.location["y"],
                                   len(elements) > 1))  
 
-    logger.info("COOKIE BANNER SEARCH %s: matched %d, from %d selectors, in %.1fs" % (domain, len(banners), len(css_list), time.time()-st))
+    logger.info("COOKIE BANNER SEARCH %s: found %d from %d+%d selectors" % (domain, len(banners), len(css_list2), len(css_list1)))
 
     # Create an empty banner if we couldn't find any.
     if not banners:
