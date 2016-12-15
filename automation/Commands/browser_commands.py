@@ -247,7 +247,7 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
     selectors.  If we find a cookie banner, we log what we can.
     """
 
-    Banner = collections.namedtuple("Banner", ["text", "width", "height", "x_pos", "y_pos"])
+    Banner = collections.namedtuple("Banner", ["text", "html", "width", "height", "x_pos", "y_pos"])
     banners = []
 
     # Connect to logger.
@@ -274,6 +274,7 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
         if len(elements):
             for element in elements:
                 banners.append(Banner(element.text,
+                                      element.get_attribute('innerHTML'),
                                       element.size["width"],
                                       element.size["height"],
                                       element.location["x"],
@@ -283,19 +284,20 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
 
     # Create pseudo banner if we couldn't find any.
     if len(banners) == 0:
-        banners.append(Banner("n/a", 0, 0, 0, 0))
+        banners.append(Banner(None, None, None, None, None, None))
 
     # Write result to database.
     sock = clientsocket()
     sock.connect(*manager_params['aggregator_address'])
     for banner in banners:
         query = ("INSERT INTO cookie_banners "
-                "(crawl_id, visit_id, url, banner_text, banner_width, "
+                "(crawl_id, visit_id, url, html, banner_text, banner_width, "
                 "banner_height, banner_x_pos, banner_y_pos) "
-                "VALUES (?,?,?,?,?,?,?,?)",
+                "VALUES (?,?,?,?,?,?,?,?,?)",
                 (browser_params["crawl_id"],
                 visit_id,
                 webdriver.current_url,
+                banner.html,
                 banner.text,
                 banner.width, banner.height,
                 banner.x_pos, banner.y_pos))
