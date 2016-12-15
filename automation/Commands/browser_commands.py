@@ -10,6 +10,7 @@ import random
 import time
 import urlparse
 import collections
+from lxml import etree
 
 from ..SocketInterface import clientsocket
 from ..MPLogger import loggingclient
@@ -257,21 +258,35 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
     components = urlparse.urlparse(webdriver.current_url)
     domain = components.netloc
 
-    # First, use a domain-specific CSS selector if there is one, and a general
-    # CSS selector otherwise.
-    css_list = selectors.get(domain, None)
-    if css_list is None:
-        css_list = selectors.get("", [])
+    # Combine domain-specific CSS selectors (if there is one) with the general selectors
+    assert type(selectors) is dict
+    css_list = selectors.get(domain, [])
+    css_list += selectors.get("", [])  
+
+    # To optimize selector search, create sets of CSS ids and classes on the page
+    tree = etree.fromstring(webdriver.page_source, etree.HTMLParser())
+    ids, classes = set(), set()
+    for a, elem in etree.iterwalk(tree):
+        if 'id' in elem.attrib:
+            ids.add(elem.attrib['id'])
+        if 'class' in elem.attrib:
+            for c in elem.attrib['class'].split(' '):
+              classes.add(c)
 
     for css in css_list:
+        if css[0] in ('.', '#'):
+            s = css[1:css.find(':')]
+            if s not in ids and s not in classes:
+                # skip find_elements for simple selectors we know are not there
+                continue  
         try:
             elements = webdriver.find_elements_by_css_selector(css)
         except InvalidSelectorException as err:
-            logger.info("Invalid CSS selector: %s" % err)
+            logger.info("detect_cookie_banner: Invalid CSS selector: %s" % err)
         except Exception as err:
-            logger.warning("Unknown exception happened: %s" % err)
+            logger.warning("detect_cookie_banner: Unknown exception happened: %s" % err)
 
-        if len(elements):
+        if elements:  
             for element in elements:
                 banners.append(Banner(element.text,
                                       element.get_attribute('innerHTML'),
@@ -279,11 +294,11 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
                                       element.size["height"],
                                       element.location["x"],
                                       element.location["y"]))
-            # Stop after we found the first banner.
+            # FIXME: We stop after finding first banner. Perhaps we want all?
             break
 
     # Create pseudo banner if we couldn't find any.
-    if len(banners) == 0:
+    if not banners:
         banners.append(Banner(None, None, None, None, None, None))
 
     # Write result to database.
@@ -303,3 +318,4 @@ def detect_cookie_banner(selectors, visit_id, webdriver, browser_params, manager
                 banner.x_pos, banner.y_pos))
         sock.send(query)
     sock.close()
+
